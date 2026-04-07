@@ -1,6 +1,7 @@
 package layers
 
 import (
+	"errors"
 	"tiny-neural/internal/activation"
 	"tiny-neural/internal/helper"
 
@@ -10,41 +11,78 @@ import (
 type LayerDense struct {
 	numberOfNeurons int
 	inputSize       int
-	activationFn    string
-	weights         *mat.Dense
-	biases          []float64
+	activationLayer activation.ActivationLayer
+
+	// matrix of numberOfNeurons * inputSize
+	weights *mat.Dense
+	// array of size of numberOfNeurons
+	biases *mat.VecDense
+
+	// matrix of anyNumberOfInputs * inputSize
+	inputs *mat.Dense
+	// matrix of anyNumberOfInputs * numberOfNeurons
+	output *mat.Dense
+
+	// gradients
+	dweights *mat.Dense
+	dbiases  *mat.VecDense
+	dinputs  *mat.Dense
 }
 
 func NewLayerDense(numberOfNeurons, inputSize int, activationFn string) *LayerDense {
 	weights := mat.NewDense(numberOfNeurons, inputSize, helper.RandomArray(numberOfNeurons*inputSize))
-	biases := make([]float64, numberOfNeurons)
+	biases := mat.NewVecDense(numberOfNeurons, nil)
+
+	var activationLayer activation.ActivationLayer
+
+	if activationFn == "relu" {
+		activationLayer = activation.NewReLULayer()
+	}
 
 	return &LayerDense{
 		numberOfNeurons: numberOfNeurons,
 		inputSize:       inputSize,
-		activationFn:    activationFn,
 		weights:         weights,
 		biases:          biases,
+		activationLayer: activationLayer,
 	}
 }
 
-func (layer *LayerDense) Forward(data *mat.Dense) *mat.Dense {
-	input_rows, _ := data.Dims()
+func (layer *LayerDense) Forward(data *mat.Dense) (*mat.Dense, error) {
+	input_rows, c := data.Dims()
+	if c != layer.inputSize {
+		return nil, errors.New("Invalid input size")
+	}
+
+	// cache the inputs
+	layer.inputs = mat.DenseCopyOf(data)
+
 	result := mat.NewDense(input_rows, layer.numberOfNeurons, nil)
 	result.Mul(data, layer.weights.T())
-	result_rows, result_cols := result.Dims()
-	broadcast_bias := make([]float64, result_rows*result_cols)
-	for i := 0; i < len(broadcast_bias); i++ {
-		broadcast_bias[i] = layer.biases[i%len(layer.biases)]
+
+	result.Apply(func(i, j int, v float64) float64 {
+		return v + layer.biases.AtVec(j)
+	}, result)
+
+	layer.output = result
+	layer.activationLayer.Forward(result)
+	return result, nil
+}
+
+func (layer *LayerDense) Backward(dvalues *mat.Dense) {
+	// Took me an hour to deeply understand this, but when I could visualize this, it felt amazing
+	dweights := mat.NewDense(layer.numberOfNeurons, layer.inputSize, nil)
+	dweights.Mul(layer.inputs.T(), dvalues)
+	layer.dweights = dweights
+
+	dbiases := mat.NewVecDense(layer.numberOfNeurons, nil)
+	for i := 0; i < layer.numberOfNeurons; i++ {
+		dbiases.SetVec(i, mat.Sum(dvalues.ColView(i)))
 	}
-	bias_matrix := mat.NewDense(result_rows, result_cols, broadcast_bias)
+	layer.dbiases = dbiases
 
-	result.Add(result, bias_matrix)
-
-	// apply activationFn
-	if layer.activationFn == "sigmoid" {
-		result.Apply(func(i, j int, v float64) float64 { return activation.SigmoidForward(v) }, result)
-	}
-
-	return result
+	input_rows, input_cols := layer.inputs.Dims()
+	dinputs := mat.NewDense(input_rows, input_cols, nil)
+	dinputs.Mul(dvalues, layer.inputs.T())
+	layer.dinputs = dinputs
 }

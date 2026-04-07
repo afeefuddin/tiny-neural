@@ -8,6 +8,7 @@ import (
 )
 
 type CategoricalCrossEntropyLoss struct {
+	dinputs *mat.Dense
 }
 
 func NewCategoricalCrossEntropyLoss() *CategoricalCrossEntropyLoss {
@@ -25,4 +26,15 @@ func (loss *CategoricalCrossEntropyLoss) Forward(output *mat.Dense, expected []i
 
 	mean := helper.Mean(extractedData)
 	return mean
+}
+
+func (loss *CategoricalCrossEntropyLoss) Backward(dvalues *mat.Dense, y_true *mat.Dense) {
+	samples, labels := dvalues.Dims()
+
+	dinputs := mat.NewDense(samples, labels, nil)
+	dinputs.Apply(func(i, j int, value float64) float64 {
+		return (value / dvalues.At(i, j)) / float64(samples)
+	}, y_true)
+
+	loss.dinputs = dinputs
 }

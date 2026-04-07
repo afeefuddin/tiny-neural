@@ -1,6 +1,7 @@
 package model
 
 import (
+	"log"
 	"tiny-neural/internal/helper"
 	"tiny-neural/internal/layers"
 
@@ -23,7 +24,12 @@ func (m *Model) Fit(xTrain *mat.Dense, yTrain []float64, epochs int) {
 
 	for _, layer := range m.layers {
 		helper.Print(*current)
-		current = layer.Forward(current)
+		c, err := layer.Forward(current)
+		if err == nil {
+			current = c
+		} else {
+			log.Fatal("error")
+		}
 	}
 
 	helper.Print(*current)
