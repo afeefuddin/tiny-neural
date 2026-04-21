@@ -1,9 +1,8 @@
 package model
 
 import (
-	"log"
-	"tiny-neural/internal/helper"
 	"tiny-neural/internal/layers"
+	"tiny-neural/internal/loss"
 
 	"gonum.org/v1/gonum/mat"
 )
@@ -20,17 +19,31 @@ func NewModel(layers []*layers.LayerDense) *Model {
 }
 
 func (m *Model) Fit(xTrain *mat.Dense, yTrain []float64, epochs int) {
-	current := xTrain
+	learningRate := 0.1
 
-	for _, layer := range m.layers {
-		helper.Print(*current)
-		c, err := layer.Forward(current)
-		if err == nil {
+	for i := 0; i < epochs; i++ {
+		current := xTrain
+
+		for _, layer := range m.layers {
+			c, err := layer.Forward(current)
+			if err != nil {
+				panic(err)
+			}
 			current = c
-		} else {
-			log.Fatal("error")
+		}
+
+		l := loss.NewMeanSquaredLoss()
+
+		dvalues := l.Backward(current, yTrain)
+
+		for layerIndex := len(m.layers) - 1; layerIndex >= 0; layerIndex-- {
+			layer := m.layers[layerIndex]
+			layer.Backward(dvalues)
+			dvalues = layer.DInputs()
+		}
+
+		for _, layer := range m.layers {
+			layer.Update(learningRate)
 		}
 	}
-
-	helper.Print(*current)
 }

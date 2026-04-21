@@ -6,7 +6,7 @@ func RandomArray(size int) []float64 {
 	arr := make([]float64, size)
 
 	for i := 0; i < len(arr); i++ {
-		arr[i] = rand.Float64()
+		arr[i] = rand.Float64()*2.0 - 1.0
 	}
 	return arr
 }

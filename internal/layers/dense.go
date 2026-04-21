@@ -37,6 +37,8 @@ func NewLayerDense(numberOfNeurons, inputSize int, activationFn string) *LayerDe
 
 	if activationFn == "relu" {
 		activationLayer = activation.NewReLULayer()
+	} else if activationFn == "sigmoid" {
+		activationLayer = activation.NewSigmoidLayer()
 	}
 
 	return &LayerDense{
@@ -64,25 +66,44 @@ func (layer *LayerDense) Forward(data *mat.Dense) (*mat.Dense, error) {
 		return v + layer.biases.AtVec(j)
 	}, result)
 
-	layer.output = result
 	layer.activationLayer.Forward(result)
-	return result, nil
+	layer.output = layer.activationLayer.GetOutput()
+	return layer.output, nil
 }
 
 func (layer *LayerDense) Backward(dvalues *mat.Dense) {
-	// Took me an hour to deeply understand this, but when I could visualize this, it felt amazing
+	layer.activationLayer.Backward(dvalues)
+	activatedGradients := layer.activationLayer.GetDInputs()
+
 	dweights := mat.NewDense(layer.numberOfNeurons, layer.inputSize, nil)
-	dweights.Mul(layer.inputs.T(), dvalues)
+	dweights.Mul(activatedGradients.T(), layer.inputs)
 	layer.dweights = dweights
 
 	dbiases := mat.NewVecDense(layer.numberOfNeurons, nil)
 	for i := 0; i < layer.numberOfNeurons; i++ {
-		dbiases.SetVec(i, mat.Sum(dvalues.ColView(i)))
+		dbiases.SetVec(i, mat.Sum(activatedGradients.ColView(i)))
 	}
 	layer.dbiases = dbiases
 
 	input_rows, input_cols := layer.inputs.Dims()
 	dinputs := mat.NewDense(input_rows, input_cols, nil)
-	dinputs.Mul(dvalues, layer.inputs.T())
+	dinputs.Mul(activatedGradients, layer.weights)
 	layer.dinputs = dinputs
+}
+
+func (layer *LayerDense) DInputs() *mat.Dense {
+	return layer.dinputs
+}
+
+func (layer *LayerDense) Update(learningRate float64) {
+	rows, cols := layer.weights.Dims()
+	for i := 0; i < rows; i++ {
+		for j := 0; j < cols; j++ {
+			layer.weights.Set(i, j, layer.weights.At(i, j)-learningRate*layer.dweights.At(i, j))
+		}
+	}
+
+	for i := 0; i < layer.numberOfNeurons; i++ {
+		layer.biases.SetVec(i, layer.biases.AtVec(i)-learningRate*layer.dbiases.AtVec(i))
+	}
 }

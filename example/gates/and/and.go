@@ -2,51 +2,31 @@ package main
 
 import (
 	"fmt"
-	"tiny-neural/internal"
+	"tiny-neural/internal/layers"
+	"tiny-neural/internal/model"
+
+	"gonum.org/v1/gonum/mat"
 )
 
 func main() {
-	neuron := internal.NewNeuron(1, 2)
-	tensors := make([]*internal.Tensor, 4)
-	for i := 0; i < 4; i++ {
-		tensors[i] = internal.NewTensor(1, 2)
-	}
-	expected := []float64{0, 0, 0, 1}
+	inputs := mat.NewDense(4, 2, []float64{
+		0, 0,
+		0, 1,
+		1, 0,
+		1, 1,
+	})
+	targets := []float64{0, 0, 0, 1}
 
-	tensors[0].Data = [][]float64{
-		{0, 0},
-	}
-	tensors[1].Data = [][]float64{
-		{0, 1},
-	}
-	tensors[2].Data = [][]float64{
-		{1, 0},
-	}
-	tensors[3].Data = [][]float64{
-		{1, 1},
-	}
+	l1 := layers.NewLayerDense(1, 2, "sigmoid")
+	model := model.NewModel([]*layers.LayerDense{l1})
+	model.Fit(inputs, targets, 10000)
 
-	epochs := 10000
-
-	fmt.Println("Starting AND gate training")
-	for i := 0; i < epochs; i++ {
-		err := neuron.Forward(tensors)
-		if err != nil {
-			fmt.Printf("Error %v", err)
-			return
-		}
-
-		neuron.Backward(expected, nil)
+	output, err := l1.Forward(inputs)
+	if err != nil {
+		panic(err)
 	}
-
-	neuron.Weights.Print()
 
 	for i := 0; i < 4; i++ {
-		op, err := tensors[i].Dot(neuron.Weights)
-		if err != nil {
-			fmt.Printf("Error %v", err)
-			return
-		}
-		fmt.Printf("%f \n", internal.Sigmoid(op+neuron.Bias))
+		fmt.Printf("%.6f\n", output.At(i, 0))
 	}
 }

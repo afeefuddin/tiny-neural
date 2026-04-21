@@ -6,6 +6,7 @@ type ActivationLayer interface {
 	Forward(inputs *mat.Dense)
 	Backward(dvalues *mat.Dense)
 	GetOutput() *mat.Dense
+	GetDInputs() *mat.Dense
 }
 
 type BaseActivation struct {
@@ -16,4 +17,8 @@ type BaseActivation struct {
 
 func (b *BaseActivation) GetOutput() *mat.Dense {
 	return b.output
+}
+
+func (b *BaseActivation) GetDInputs() *mat.Dense {
+	return b.dinputs
 }

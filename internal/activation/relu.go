@@ -30,7 +30,7 @@ func (layer *ReLULayer) Backward(dinputs *mat.Dense) {
 	layer.dinputs = &copy
 
 	layer.dinputs.Apply(func(i, j int, v float64) float64 {
-		if v < 0.0 {
+		if layer.inputs.At(i, j) <= 0.0 {
 			return 0.0
 		} else {
 			return v
