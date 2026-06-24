@@ -1,17 +1,20 @@
 package activation
 
-import "gonum.org/v1/gonum/mat"
+import (
+	"math"
+
+	"gonum.org/v1/gonum/mat"
+)
 
 type SoftMaxLayer struct {
-	Output  *mat.Dense
-	dinputs *mat.Dense
+	BaseActivation
 }
 
 func NewSoftMaxLayer() *SoftMaxLayer {
 	return &SoftMaxLayer{}
 }
 
-func (layer *SoftMaxLayer) Forward(input mat.Dense) {
+func (layer *SoftMaxLayer) Forward(input *mat.Dense) {
 	r, c := input.Dims()
 
 	rowMax := make([]float64, r)
@@ -22,11 +25,11 @@ func (layer *SoftMaxLayer) Forward(input mat.Dense) {
 
 	normalized := mat.NewDense(r, c, nil)
 	normalized.Apply(func(i, j int, v float64) float64 {
-		return v - rowMax[i]
-	}, &input)
+		return math.Exp(v - rowMax[i])
+	}, input)
 
 	// exponent of everything
-	normalized.Exp(normalized)
+	// normalized.Exp(normalized)
 
 	rowWiseSum := make([]float64, r)
 
@@ -38,7 +41,7 @@ func (layer *SoftMaxLayer) Forward(input mat.Dense) {
 		return v / rowWiseSum[i]
 	}, normalized)
 
-	layer.Output = normalized
+	layer.output = normalized
 }
 
 func (layer *SoftMaxLayer) Backward(dvalues *mat.Dense) {
@@ -46,7 +49,7 @@ func (layer *SoftMaxLayer) Backward(dvalues *mat.Dense) {
 	dinputs := mat.NewDense(r, c, nil)
 
 	for i := 0; i < r; i++ {
-		singleOutput := layer.Output.RowView(i)
+		singleOutput := layer.output.RowView(i)
 
 		s := mat.NewDense(c, 1, nil)
 		for j := 0; j < c; j++ {

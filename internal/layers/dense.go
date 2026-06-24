@@ -2,6 +2,7 @@ package layers
 
 import (
 	"errors"
+	"fmt"
 	"tiny-neural/internal/activation"
 	"tiny-neural/internal/helper"
 
@@ -9,7 +10,7 @@ import (
 )
 
 type LayerDense struct {
-	numberOfNeurons int
+	NumberOfNeurons int
 	inputSize       int
 	activationLayer activation.ActivationLayer
 
@@ -39,10 +40,12 @@ func NewLayerDense(numberOfNeurons, inputSize int, activationFn string) *LayerDe
 		activationLayer = activation.NewReLULayer()
 	} else if activationFn == "sigmoid" {
 		activationLayer = activation.NewSigmoidLayer()
+	} else if activationFn == "softmax" {
+		activationLayer = activation.NewSoftMaxLayer()
 	}
 
 	return &LayerDense{
-		numberOfNeurons: numberOfNeurons,
+		NumberOfNeurons: numberOfNeurons,
 		inputSize:       inputSize,
 		weights:         weights,
 		biases:          biases,
@@ -53,13 +56,14 @@ func NewLayerDense(numberOfNeurons, inputSize int, activationFn string) *LayerDe
 func (layer *LayerDense) Forward(data *mat.Dense) (*mat.Dense, error) {
 	input_rows, c := data.Dims()
 	if c != layer.inputSize {
-		return nil, errors.New("Invalid input size")
+		message := fmt.Sprintf("Invalid input size, expected: %d got: %d. The number of neurons are: %d", layer.inputSize, c, layer.NumberOfNeurons)
+		return nil, errors.New(message)
 	}
 
 	// cache the inputs
 	layer.inputs = mat.DenseCopyOf(data)
 
-	result := mat.NewDense(input_rows, layer.numberOfNeurons, nil)
+	result := mat.NewDense(input_rows, layer.NumberOfNeurons, nil)
 	result.Mul(data, layer.weights.T())
 
 	result.Apply(func(i, j int, v float64) float64 {
@@ -75,12 +79,12 @@ func (layer *LayerDense) Backward(dvalues *mat.Dense) {
 	layer.activationLayer.Backward(dvalues)
 	activatedGradients := layer.activationLayer.GetDInputs()
 
-	dweights := mat.NewDense(layer.numberOfNeurons, layer.inputSize, nil)
+	dweights := mat.NewDense(layer.NumberOfNeurons, layer.inputSize, nil)
 	dweights.Mul(activatedGradients.T(), layer.inputs)
 	layer.dweights = dweights
 
-	dbiases := mat.NewVecDense(layer.numberOfNeurons, nil)
-	for i := 0; i < layer.numberOfNeurons; i++ {
+	dbiases := mat.NewVecDense(layer.NumberOfNeurons, nil)
+	for i := 0; i < layer.NumberOfNeurons; i++ {
 		dbiases.SetVec(i, mat.Sum(activatedGradients.ColView(i)))
 	}
 	layer.dbiases = dbiases
@@ -103,7 +107,23 @@ func (layer *LayerDense) Update(learningRate float64) {
 		}
 	}
 
-	for i := 0; i < layer.numberOfNeurons; i++ {
+	for i := 0; i < layer.NumberOfNeurons; i++ {
 		layer.biases.SetVec(i, layer.biases.AtVec(i)-learningRate*layer.dbiases.AtVec(i))
 	}
+}
+
+func (layer *LayerDense) Weights() *mat.Dense {
+	return layer.weights
+}
+
+func (layer *LayerDense) Biases() *mat.VecDense {
+	return layer.biases
+}
+
+func (layer *LayerDense) DWeights() *mat.Dense {
+	return layer.dweights
+}
+
+func (layer *LayerDense) DBiases() *mat.VecDense {
+	return layer.dbiases
 }

@@ -3,12 +3,13 @@ package loss
 import (
 	"math"
 	"tiny-neural/internal/helper"
+	"tiny-neural/internal/preprocessing"
 
 	"gonum.org/v1/gonum/mat"
 )
 
 type CategoricalCrossEntropyLoss struct {
-	dinputs *mat.Dense
+	BaseLoss
 }
 
 func NewCategoricalCrossEntropyLoss() *CategoricalCrossEntropyLoss {
@@ -28,13 +29,18 @@ func (loss *CategoricalCrossEntropyLoss) Forward(output *mat.Dense, expected []i
 	return mean
 }
 
-func (loss *CategoricalCrossEntropyLoss) Backward(dvalues *mat.Dense, y_true *mat.Dense) {
+// here y_true is one hot encoded that is basically
+// for every sample the input will be something like this [0, 1, 0, 0] given that their are 4 labels
+func (loss *CategoricalCrossEntropyLoss) Backward(dvalues *mat.Dense, y_true *mat.VecDense) {
+	// Do one hot encoding
 	samples, labels := dvalues.Dims()
+	y_encoded := preprocessing.OneHotEncode(y_true, labels)
 
 	dinputs := mat.NewDense(samples, labels, nil)
 	dinputs.Apply(func(i, j int, value float64) float64 {
-		return (value / dvalues.At(i, j)) / float64(samples)
-	}, y_true)
+		predictedProb := helper.Clip(dvalues.At(i, j), 1e-7, 1-1e-7)
+		return -(value / predictedProb) / float64(samples)
+	}, y_encoded)
 
-	loss.dinputs = dinputs
+	loss.dvalues = dinputs
 }

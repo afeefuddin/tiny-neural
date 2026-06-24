@@ -10,10 +10,10 @@ import (
 
 func main() {
 	inputs := mat.NewDense(4, 2, []float64{0, 0, 0, 1, 1, 0, 1, 1})
-	targets := []float64{0, 1, 1, 1}
+	targets := mat.NewVecDense(4, []float64{0, 1, 1, 1})
 
 	l1 := layers.NewLayerDense(1, 2, "sigmoid")
-	model := model.NewModel([]*layers.LayerDense{l1})
+	model := model.NewModel([]*layers.LayerDense{l1}, "mse")
 	model.Fit(inputs, targets, 10000)
 
 	output, err := l1.Forward(inputs)

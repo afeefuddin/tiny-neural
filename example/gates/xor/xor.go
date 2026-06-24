@@ -15,11 +15,11 @@ func main() {
 		1, 0,
 		1, 1,
 	})
-	targets := []float64{0, 1, 1, 0}
+	targets := mat.NewVecDense(4, []float64{0, 1, 1, 0})
 
 	l1 := layers.NewLayerDense(2, 2, "sigmoid")
 	l2 := layers.NewLayerDense(1, 2, "sigmoid")
-	model := model.NewModel([]*layers.LayerDense{l1, l2})
+	model := model.NewModel([]*layers.LayerDense{l1, l2}, "mse")
 	model.Fit(inputs, targets, 20000)
 
 	hidden, err := l1.Forward(inputs)
